@@ -2,10 +2,13 @@
   "version": 2,
   "builds": [
     { "src": "public/index.html", "use": "@vercel/static" },
-    { "src": "api/chat.js", "use": "@vercel/node" }
+    { "src": "api/*.js", "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/chat", "dest": "/api/chat.js" },
+    { "src": "/api/generate-word", "dest": "/api/generate-word.js" },
+    { "src": "/api/generate-excel", "dest": "/api/generate-excel.js" },
+    { "src": "/api/generate", "dest": "/api/generate.js" },
     { "src": "/(.*)", "dest": "/public/index.html" }
   ]
 }
