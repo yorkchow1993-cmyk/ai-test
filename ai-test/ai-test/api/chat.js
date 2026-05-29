@@ -10,24 +10,25 @@ export default async function handler(req, res) {
     const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'API Key 未配置' });
 
-    const response = await fetch('https://api.tokenbyte.ai/v1/messages', {
+    const response = await fetch('https://api.tokenbyte.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        system: systemPrompt || '你是一个专业高效的AI助理，用中文回复，回答简洁清晰，可直接使用。',
-        messages: messages
+        messages: [
+          { role: 'system', content: systemPrompt || '你是一个专业高效的AI助理，用中文回复，回答简洁清晰，可直接使用。' },
+          ...messages
+        ],
+        max_tokens: 4000
       })
     });
 
     const data = await response.json();
     if (!response.ok) return res.status(response.status).json({ error: data.error?.message || '请求失败' });
-    res.status(200).json({ content: data.content[0].text });
+    res.status(200).json({ content: data.choices[0].message.content });
   } catch (err) {
     res.status(500).json({ error: '服务器错误: ' + err.message });
   }
