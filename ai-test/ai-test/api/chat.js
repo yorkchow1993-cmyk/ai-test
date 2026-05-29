@@ -18,7 +18,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-7',
+        model: 'claude-sonnet-4-6',
         max_tokens: 4000,
         system: systemPrompt || '你是一个专业高效的AI助理，用中文回复，回答简洁清晰，可直接使用。',
         messages: messages
