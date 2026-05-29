@@ -90,9 +90,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .wchip{padding:7px 14px;border-radius:20px;border:.5px solid var(--border2);font-size:12.5px;color:var(--text2);cursor:pointer;background:var(--surface)}
 .wchip:hover{background:var(--surface2)}
 @media(max-width:600px){.sidebar{display:none}}
+
+.loading-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);z-index:999;align-items:center;justify-content:center}
+.loading-box{background:#fff;padding:20px 30px;border-radius:10px;font-size:14px;color:#333;display:flex;align-items:center;gap:10px}
+.loading-spin{width:20px;height:20px;border:2px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
+<div class="loading-overlay" id="loading-overlay"><div class="loading-box"><div class="loading-spin"></div><span id="loading-text">处理中…</span></div></div>
 <div class="header">
   <div class="logo">🤖 AI测试</div>
   <div class="mode-tabs">
@@ -230,7 +236,7 @@ function addAiMsg(content, intent){
     }
     if(intent==='ppt'){
       var b=document.createElement('button');b.className='fbtn ppt';b.textContent='⬇️ 下载 PPT大纲(Word)';
-      b.onclick=(function(c){return function(){dlWord(c,'PPT大纲.doc');};})(content);
+      b.onclick=(function(c){return function(){dlPptx(c,'AI演示.pptx');};})(content);
       btns.appendChild(b);
     }
     // 所有格式都加TXT下载
@@ -273,7 +279,65 @@ async function sendChat(){
   document.getElementById('msgs').scrollTop=99999;
 }
 
-// ===== 下载函数 =====
+// ===== 下载函数（调用后端真实生成）=====
+async function dlWord(text, filename){
+  try{
+    showLoading('正在生成 Word 文件…');
+    var resp=await fetch('/api/generate-word',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({content:text,filename:filename||'AI文档.docx'})});
+    if(!resp.ok){var e=await resp.json();throw new Error(e.error||'生成失败');}
+    var blob=await resp.blob();
+    triggerDownload(blob,filename||'AI文档.docx');
+    hideLoading();
+  }catch(e){hideLoading();alert('Word生成失败：'+e.message+'\n\n将为你下载TXT版本');dlTxt(text,filename.replace('.docx','.txt'));}
+}
+
+async function dlExcel(text, filename){
+  try{
+    showLoading('正在生成 Excel 文件…');
+    var resp=await fetch('/api/generate-excel',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({content:text,filename:filename||'AI表格.xlsx'})});
+    if(!resp.ok){var e=await resp.json();throw new Error(e.error||'生成失败');}
+    var blob=await resp.blob();
+    triggerDownload(blob,filename||'AI表格.xlsx');
+    hideLoading();
+  }catch(e){hideLoading();alert('Excel生成失败：'+e.message+'\n\n将为你下载TXT版本');dlTxt(text,filename.replace('.xlsx','.txt'));}
+}
+
+async function dlPptx(text, filename){
+  try{
+    showLoading('正在生成 PPT 文件…');
+    var resp=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'pptx',content:text,filename:filename||'AI演示.pptx'})});
+    if(!resp.ok){var e=await resp.json();throw new Error(e.error||'生成失败');}
+    var blob=await resp.blob();
+    triggerDownload(blob,filename||'AI演示.pptx');
+    hideLoading();
+  }catch(e){hideLoading();alert('PPT生成失败：'+e.message+'\n\n将为你下载Word版本');dlWordFallback(text,filename.replace('.pptx','.doc'));}
+}
+
+
+function showLoading(msg){
+  document.getElementById('loading-text').textContent=msg||'处理中…';
+  document.getElementById('loading-overlay').style.display='flex';
+}
+function hideLoading(){
+  document.getElementById('loading-overlay').style.display='none';
+}
+
+function dlWordFallback(text,filename){
+  var lines=text.split('\n');
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:SimSun;font-size:12pt;margin:2cm}h1{font-size:16pt;font-weight:bold;text-align:center}h2{font-size:14pt;font-weight:bold}p{margin:4pt 0}
+.loading-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);z-index:999;align-items:center;justify-content:center}
+.loading-box{background:#fff;padding:20px 30px;border-radius:10px;font-size:14px;color:#333;display:flex;align-items:center;gap:10px}
+.loading-spin{width:20px;height:20px;border:2px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style></head><body>';
+  lines.forEach(function(line){var t=line.trim();if(!t){html+='<p>&nbsp;</p>';return;}if(t.startsWith('## ')){html+='<h2>'+t.slice(3)+'</h2>';}else if(t.startsWith('# ')){html+='<h1>'+t.slice(2)+'</h1>';}else if(t.startsWith('- ')){html+='<p>• '+t.slice(2)+'</p>';}else{html+='<p>'+t+'</p>';}});
+  html+='</body></html>';
+  var blob=new Blob(['\ufeff'+html],{type:'application/msword;charset=utf-8'});
+  triggerDownload(blob,filename);
+}
 function dlWord(text, filename){
   try{
     var lines=text.split('\n');
@@ -283,7 +347,12 @@ function dlWord(text, filename){
       'h2{font-size:14pt;font-weight:bold;margin:12pt 0 6pt}'+
       'h3{font-size:13pt;font-weight:bold;margin:10pt 0 4pt}'+
       'p{margin:4pt 0;text-indent:2em}'+
-      '</style></head><body>';
+      '
+.loading-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);z-index:999;align-items:center;justify-content:center}
+.loading-box{background:#fff;padding:20px 30px;border-radius:10px;font-size:14px;color:#333;display:flex;align-items:center;gap:10px}
+.loading-spin{width:20px;height:20px;border:2px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style></head><body>';
     lines.forEach(function(line){
       var t=line.trim();
       if(!t){html+='<p>&nbsp;</p>';return;}
