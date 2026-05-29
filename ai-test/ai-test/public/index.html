@@ -352,7 +352,7 @@ async function processDoc() {
 
 async function downloadWord() { generateAndDownload(editedText, '修改后文档.docx'); }
 
-async function generateAndDownload(text, filename) {
+
   const { Document, Paragraph, TextRun, Packer, HeadingLevel } = docx;
   const lines = text.split('\n');
   const children = lines.map(line => {
@@ -368,6 +368,34 @@ async function generateAndDownload(text, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
+}
+
+
+function generateAndDownload(text, filename) {
+  const lines = text.split('\n');
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>body{font-family:SimSun,serif;font-size:12pt;line-height:1.8;margin:2cm}h1{font-size:16pt;font-weight:bold;margin:12pt 0}h2{font-size:14pt;font-weight:bold;margin:10pt 0}h3{font-size:13pt;font-weight:bold;margin:8pt 0}p{margin:4pt 0}</style></head><body>';
+  lines.forEach(function(line) {
+    var t = line.trim();
+    if (!t) { html += '<p>&nbsp;</p>'; return; }
+    if (t.startsWith('### ')) { html += '<h3>' + t.slice(4) + '</h3>'; }
+    else if (t.startsWith('## ')) { html += '<h2>' + t.slice(3) + '</h2>'; }
+    else if (t.startsWith('# ')) { html += '<h1>' + t.slice(2) + '</h1>'; }
+    else if (t.startsWith('- ') || t.startsWith('* ')) { html += '<p>&#8226; ' + t.slice(2) + '</p>'; }
+    else {
+      var p = t.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>');
+      html += '<p>' + p + '</p>';
+    }
+  });
+  html += '</body></html>';
+  var blob = new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename.replace('.docx', '.doc');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 }
 
 switchMode('chat');
